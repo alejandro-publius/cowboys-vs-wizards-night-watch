@@ -1,0 +1,24 @@
+{
+  "name": "kiroween-night-watch",
+  "displayName": "Night Watch",
+  "version": "0.1.1",
+  "description": "Compare Cowboys vs. Wizards revisions with repeatable balance checks.",
+  "author": "Cowboys vs. Wizards",
+  "license": "MIT",
+  "minKiroCrewVersion": "0.12.2",
+  "platform": { "os": ["macos", "linux"] },
+  "backend": {
+    "entryPoint": "backend/server.py",
+    "port": "auto",
+    "healthCheck": "/health"
+  },
+  "ui": {
+    "entry": "index.mjs",
+    "pages": [
+      { "route": "/apps/kiroween-night-watch", "label": "Night Watch", "icon": "Activity" }
+    ]
+  },
+  "permissions": {
+    "api": ["/apps/kiroween-night-watch/api"]
+  }
+}
