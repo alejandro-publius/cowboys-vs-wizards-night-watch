@@ -36,7 +36,7 @@ MAX_CHANGES = 50
 CARDS_DIR = ".kiro/specs/duel-card-pipeline/cards"
 
 REQUIRED_PATHS = ["package.json", "src/game", "scripts/play-match.mjs", "scripts/simulate-matches.mjs"]
-OPTIONAL_PATHS = ["tests/game", CARDS_DIR]
+OPTIONAL_PATHS = ["tests/game", "src/profile", CARDS_DIR]
 
 
 class ConfigError(Exception):

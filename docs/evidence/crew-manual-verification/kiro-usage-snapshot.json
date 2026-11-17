@@ -1,0 +1,13 @@
+{
+  "source": "kiro-cli chat --no-interactive \"/usage\" (separate headless session 2fc38bf0-8c62-403d-85a7-d8cbee5fb8ad, 0 msgs)",
+  "scope": "account-level snapshot, not this session",
+  "thisSessionUsage": "unavailable",
+  "redactions": [
+    "Account plan, renewal, trial and bonus credit balances, expiry periods and account percentages omitted from public evidence."
+  ],
+  "originalIgnoredPath": ".artifacts/crew-verification/kiro-usage.out",
+  "originalSha256": "7e9a110adc400cae3e2a90307439ca91111d6f66f0edb95f10d4575099e8c976",
+  "publicationReview": "Codex redaction; original Kiro output retained unchanged locally.",
+  "observedAcpModelSelector": "auto",
+  "observedAcpMode": "vibe"
+}

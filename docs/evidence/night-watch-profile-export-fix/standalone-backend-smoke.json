@@ -1,0 +1,21 @@
+{
+  "kind": "standalone-backend-cli-smoke",
+  "viaKiroCrew": false,
+  "observedAt": "2026-11-17T01:52:17Z",
+  "backendSource": "c72ae2693ada100bc1f0316475f0ac6a2d5662b2 plus the uncommitted profile-export fix",
+  "command": "python3 backend/server.py run (NIGHT_WATCH_DATA_DIR isolated under .artifacts/profile-export-fix/data, config saved via server.save_config)",
+  "exitCode": 0,
+  "trigger": "manual",
+  "seeds": {"first": 0, "count": 20},
+  "threshold": 10,
+  "baseline": "599450a27703fbdb8961d626c3e779512f54f29e",
+  "candidate": "599450a27703fbdb8961d626c3e779512f54f29e",
+  "state": "steady",
+  "rules": {"state": "passed", "tests": 64},
+  "simulation": "completed",
+  "counts": {"cowboy": 14, "wizard": 4, "draw": 2, "first": 13, "second": 5},
+  "baselineCountsEqualCandidate": true,
+  "changes": [],
+  "reportId": "1e6bbc441c79",
+  "previousRun": {"note": "historical, kept in crew-manual-verification/standalone-backend-smoke.json", "reportId": "2574c44c2046", "state": "failed", "testsPassed": 52, "testsTotal": 53}
+}

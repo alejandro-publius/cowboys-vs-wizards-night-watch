@@ -56,3 +56,9 @@ This project was built for Kiroween 2026. It is an optional local developer tool
 The standalone export passed all four dependency-free Python tests and the UI JavaScript syntax check on November 16, 2026. The tests cover configuration bounds, thresholds and isolated report storage. They do not prove current Crew installation, a continuous nightly schedule or human gameplay balance.
 
 Issue links open a prefilled GitHub draft; this app does not silently file public issues. Scheduling remains opt-in using the documented command after a successful manual run.
+
+## Version 0.1.2 verification
+
+Kiro found and fixed a missing profile-module export. Codex preserved older baselines without profiles. Six Python checks pass, including real archive/import fixtures; Kiro completed a separate 20-seed backend run. [Fix evidence](docs/evidence/night-watch-profile-export-fix.md).
+
+The installed 0.1.1 copy remains disabled by Crew's app execution policy. This package is not a claim of a successful live UI run or an enabled nightly schedule. [Observed Crew status](docs/evidence/crew-manual-verification.md).

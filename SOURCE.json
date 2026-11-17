@@ -3,5 +3,12 @@
   "commit": "599450a27703fbdb8961d626c3e779512f54f29e",
   "path": "apps/night-watch",
   "packaged_by": "Codex",
-  "implementation_attribution": "See README and upstream Kiro Night Watch evidence"
+  "implementation_attribution": "See README and upstream Kiro Night Watch evidence",
+  "local_patches": [
+    {
+      "description": "Optional profile export and real Git extraction regression fixtures",
+      "evidence": "docs/evidence/night-watch-profile-export-fix.md",
+      "implementation": "Kiro CLI, with Codex backward-compatibility correction and publication review"
+    }
+  ]
 }

@@ -1,0 +1,32 @@
+{
+  "kind": "standalone-backend-cli-smoke",
+  "viaKiroCrew": false,
+  "observedAt": "2026-11-17T01:42:41Z",
+  "trigger": "manual",
+  "backendSource": "standalone export at c00b95d988f9306550bc4957a04fb2352870a67f",
+  "command": "python3 backend/server.py run (NIGHT_WATCH_DATA_DIR isolated, config saved via server.save_config)",
+  "seeds": {
+    "first": 0,
+    "count": 20
+  },
+  "threshold": 10,
+  "baseline": {
+    "ref": "599450a27703fbdb8961d626c3e779512f54f29e",
+    "commit": "599450a27703fbdb8961d626c3e779512f54f29e"
+  },
+  "candidate": {
+    "ref": "599450a27703fbdb8961d626c3e779512f54f29e",
+    "commit": "599450a27703fbdb8961d626c3e779512f54f29e"
+  },
+  "state": "failed",
+  "message": "The candidate's game tests failed, so no simulation was run.",
+  "rules": {
+    "state": "failed",
+    "tests": null
+  },
+  "counts": null,
+  "changes": [],
+  "ruleFailure": "tests/game/player-profile.test.js: ERR_MODULE_NOT_FOUND for src/profile/player-profile.js; 52 of 53 node tests passed",
+  "issueDraft": "link saved with report; not opened or submitted",
+  "reportId": "2574c44c2046"
+}
