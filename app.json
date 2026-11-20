@@ -1,7 +1,7 @@
 {
   "name": "kiroween-night-watch",
   "displayName": "Night Watch",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Compare Cowboys vs. Wizards revisions with repeatable balance checks.",
   "author": "Cowboys vs. Wizards",
   "license": "MIT",
