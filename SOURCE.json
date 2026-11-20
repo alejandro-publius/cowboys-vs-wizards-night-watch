@@ -1,14 +1,40 @@
 {
   "repository": "https://github.com/alejandro-publius/cowboys-vs-wizards",
-  "commit": "599450a27703fbdb8961d626c3e779512f54f29e",
+  "commit": "7fdc234a59bace2a809a77c188fb193e0846dea1",
   "path": "apps/night-watch",
   "packaged_by": "Codex",
+  "synchronized_by": "Kiro CLI (K-079)",
   "implementation_attribution": "See README and upstream Kiro Night Watch evidence",
-  "local_patches": [
+  "runtime_parity": {
+    "status": "byte-identical to apps/night-watch at the source commit",
+    "method": "git archive of the source commit; git hash-object of each mirror file compared with its upstream blob",
+    "files": {
+      "LICENSE": "c51f423578d04617adc7ed65fba5be22487855a7",
+      "app.json": "d0aa3572ee95b90e0307bdc65871fe67f824ba78",
+      "backend/balance.py": "8992a70e90a128929570eb76319e0de762afb7c9",
+      "backend/issues.py": "5c54e142c2502d976a6f936ea9e5add21efb2383",
+      "backend/lean.py": "8361d5e80ec7c8e0610c47c4eef5d3f3481ff7a1",
+      "backend/server.py": "bd49935b60460bce570f50890abd5ece4b9dc031",
+      "backend/showdown_sim.mjs": "33b0f354b06ce3be7ed2ce524a76a1574b3bc76f",
+      "backend/test_night_watch.py": "15b6e85aca07a4da4597577aac0622fabb5174c3",
+      "ui/index.mjs": "96c3344d8b334bc0f87b31d0615ff802e2ee1689",
+      "ui/panel.css": "23ee1b709a62abe58751b30c7b131c6abca31a22"
+    },
+    "mirror_only": [
+      ".gitignore",
+      "README.md",
+      "SOURCE.json",
+      "docs/evidence/"
+    ]
+  },
+  "local_patches": [],
+  "upstreamed_patches": [
     {
       "description": "Optional profile export and real Git extraction regression fixtures",
       "evidence": "docs/evidence/night-watch-profile-export-fix.md",
-      "implementation": "Kiro CLI, with Codex backward-compatibility correction and publication review"
+      "implementation": "Kiro CLI, with Codex backward-compatibility correction and publication review",
+      "applied_on": "599450a27703fbdb8961d626c3e779512f54f29e",
+      "upstream_status": "Included at the source commit: balance.py extracts all of src as an optional path, and test_night_watch.py keeps both real Git fixtures (test_extracted_snapshot_runs_game_test_that_imports_profile_module and test_extracted_legacy_snapshot_without_profile_runs_game_test) unchanged"
     }
   ]
 }

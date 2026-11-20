@@ -1,7 +1,7 @@
 """Night Watch Kiro Crew backend.
 
 Run without arguments to serve HTTP on 127.0.0.1 (port from the PORT variable).
-Run `python3 backend/server.py run --scheduled` for one check, as a cron command.
+Run `python3 backend/server.py run --scheduled --mode showdown` for one check, as a cron command.
 """
 
 import argparse
@@ -18,12 +18,18 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import balance
+import issues
 
 APP_ID = "kiroween-night-watch"
 SCHEDULE_OWNER = "app:kiroween-night-watch/balance"
 API_PREFIXES = ("/apps/" + APP_ID + "/api", "/api/apps/" + APP_ID, "/api")
 MAX_BODY = 64 * 1024
 MAX_REPORTS = 20
+NIGHTLY_MODE = "showdown"
+# The Night Shift reviewer in this app's own checkout (scripts/night-review.mjs), and its bounds.
+REVIEWER = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "scripts", "night-review.mjs"))
+REVIEW_TIMEOUT = 120
+MAX_ISSUES_PER_RUN = 2
 
 
 class Busy(Exception):
@@ -107,10 +113,15 @@ def save_config(raw):
     return get_state()
 
 
-def run_report(source):
-    """Run one comparison, store it, and return the record."""
+def run_report(source, mode=None):
+    """Run one comparison, store it, and return the record. A mode overrides the saved one for this run."""
     with file_lock("run.lock", wait=False):
-        record = balance.build_report(load_config(), source)
+        config = load_config()
+        if mode is not None:
+            if mode not in balance.MODES:
+                raise balance.ConfigError("Mode must be one of %s." % ", ".join(balance.MODES))
+            config["mode"] = mode
+        record = balance.build_report(config, source)
         with file_lock("state.lock", wait=True):
             write_json("history.json", ([record] + load_reports())[:MAX_REPORTS])
     return record
@@ -118,11 +129,25 @@ def run_report(source):
 
 # ---------------------------------------------------------------- HTTP
 
+def host_allowed(host, port):
+    return host is not None and host.strip().lower() in ("127.0.0.1:%d" % port, "localhost:%d" % port)
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "NightWatch"
 
     def log_message(self, fmt, *args):
         pass
+
+    def parse_request(self):
+        # Refuse DNS-rebinding style requests; X-Forwarded-Host is never consulted.
+        if not super().parse_request():
+            return False
+        if host_allowed(self.headers.get("Host"), self.server.server_address[1]):
+            return True
+        self.close_connection = True
+        self.send_json(403, {"error": "Host header must be 127.0.0.1 or localhost on the listening port."})
+        return False
 
     def send_json(self, status, body):
         data = json.dumps(body).encode("utf-8")
@@ -215,11 +240,70 @@ def serve():
         server.server_close()
 
 
+# ---------------------------------------------------------------- scheduled issues (opt-in)
+
+def review_finding(record, node=None, run=subprocess.run):
+    """Bounded independent check: the Night Shift reviewer re-runs the record's counts from a fresh snapshot.
+
+    Returns (reproduced, summary). Any failure, timeout or missing reviewer counts as not reproduced.
+    """
+    node = node or os.environ.get("NIGHT_WATCH_NODE") or shutil.which("node")
+    if not node or not os.path.isfile(REVIEWER):
+        return False, "reviewer unavailable (%s)" % ("node not found" if not node else "scripts/night-review.mjs missing")
+    handle, path = tempfile.mkstemp(prefix="night-watch-finding-", suffix=".json")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as out:
+            json.dump(record, out)
+        try:
+            result = run([node, REVIEWER, "check", "--finding", path], cwd=os.path.dirname(os.path.dirname(REVIEWER)),
+                         env=balance.child_env(), stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                         timeout=REVIEW_TIMEOUT)
+        except (OSError, subprocess.TimeoutExpired) as error:
+            return False, "reviewer did not finish (%s)" % type(error).__name__
+    finally:
+        os.remove(path)
+    try:
+        line = json.loads((result.stdout or "").strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        line = {}
+    if result.returncode == 0 and line.get("reproduced") is True:
+        return True, "reproduced all %d games for %s seeds %d-%d" % (
+            line["observed"]["games"], line["commit"][:12], line["seeds"][0], line["seeds"][1])
+    return False, "not reproduced (exit %d%s)" % (result.returncode,
+                                                  ", mismatched " + ", ".join(line["mismatched"]) if line.get("mismatched") else "")
+
+
+def scheduled_issues(record, config, gh=None, review=review_finding, run=subprocess.run):
+    """After a scheduled run: off by default; with autoIssues "lean", one deduplicated issue per reproduced lean finding."""
+    if config.get("autoIssues", "off") == "off":
+        return {"mode": "off"}
+    receipt = record.get("receipt")
+    if config.get("autoIssues") != "lean" or not config.get("band") or record.get("mode") != "showdown" or not receipt:
+        return {"mode": config.get("autoIssues"), "state": "skipped", "reason": "needs Showdown mode, a band and a receipt"}
+    if not [f for f in receipt["findings"] if f["kind"] == "lean"]:
+        return {"mode": "lean", "state": "no-finding"}
+    reproduced, summary = review(record)
+    if not reproduced:
+        return {"mode": "lean", "state": "not-published", "review": summary}
+    slug = config.get("issueRepo") or receipt.get("repository")
+    with file_lock("publish.lock", wait=False):
+        results = issues.publish(receipt, slug, data_dir(), gh=gh or shutil.which("gh"), dry_run=False, run=run,
+                                 kinds={"lean"}, review=summary, limit=MAX_ISSUES_PER_RUN)
+    return {"mode": "lean", "state": "published", "review": summary, "repository": slug,
+            "issues": [{"key": r["key"], "action": r["action"], "number": r["number"]} for r in results]}
+
+
+def attach_publication(record, publication):
+    record["publication"] = publication
+    with file_lock("state.lock", wait=True):
+        write_json("history.json", [record if r.get("id") == record["id"] else r for r in load_reports()])
+
+
 # ---------------------------------------------------------------- CLI
 
-def run_cli(source):
+def run_cli(source, mode=None):
     try:
-        record = run_report(source)
+        record = run_report(source, mode)
     except (balance.ConfigError, Busy, StoreError) as error:
         print("Night Watch could not run. %s" % error, file=sys.stderr)
         return 1
@@ -229,7 +313,78 @@ def run_cli(source):
     print("Night Watch %s (%s). %s" % (record["state"], record["id"], record["message"]))
     if record.get("issueUrl"):
         print("Issue draft link is saved with the report.")
+    if source != "scheduled" or record["state"] == "failed":
+        return 1 if record["state"] == "failed" else 0
+    try:
+        publication = scheduled_issues(record, load_config())
+    except (issues.PublishError, Busy, StoreError, OSError, ValueError) as error:
+        publication = {"mode": "lean", "state": "error", "reason": str(error)}
+    attach_publication(record, publication)
+    if publication["mode"] != "off":
+        print("Scheduled issues: %s%s" % (publication["state"], "".join(
+            "; %s #%d" % (i["action"], i["number"]) for i in publication.get("issues", []))))
+    return 1 if publication.get("state") == "error" else 0
+
+
+def evaluate_cli(args):
+    """On-demand check: writes a receipt file; leaves saved settings and history untouched."""
+    band = None
+    if args.band_low is not None or args.band_high is not None:
+        band = {"low": args.band_low, "high": args.band_high}
+    raw = {"repo": args.repo, "baseline": args.baseline or args.candidate, "candidate": args.candidate,
+           "firstSeed": args.first_seed, "count": args.count, "threshold": args.threshold,
+           "mode": args.mode, "band": band}
+    try:
+        config = balance.validate_config(raw)
+        record = balance.build_report(config, "on-demand")
+    except balance.ConfigError as error:
+        print("Night Watch could not run. %s" % error, file=sys.stderr)
+        return 1
+    receipt = record["receipt"]
+    text = json.dumps(receipt, indent=2) + "\n"
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as out:
+            out.write(text)
+    else:
+        sys.stdout.write(text)
+    summary = sys.stderr if not args.out else sys.stdout
+    print("Night Watch on-demand: shift %s, lean %s. %s" % (
+        record["state"], receipt["lean"]["verdict"], record["message"]), file=summary)
     return 1 if record["state"] == "failed" else 0
+
+
+def load_receipt(args):
+    if args.receipt:
+        with open(args.receipt, encoding="utf-8") as handle:
+            return json.load(handle)
+    reports = load_reports()
+    wanted = [r for r in reports if args.report in ("latest", r.get("id"))]
+    if not wanted or "receipt" not in wanted[0]:
+        raise issues.PublishError("No stored report %s has a receipt." % args.report)
+    return wanted[0]["receipt"]
+
+
+def issues_cli(args):
+    """Dry run unless --publish is given. The scheduled job uses scheduled_issues() instead, and only when opted in."""
+    try:
+        receipt = load_receipt(args)
+        slug = args.repo or receipt.get("repository")
+        with file_lock("publish.lock", wait=False):
+            results = issues.publish(receipt, slug, data_dir(), gh=shutil.which("gh"), dry_run=not args.publish)
+    except (issues.PublishError, Busy, StoreError, OSError, ValueError) as error:
+        print("Night Watch did not publish. %s" % error, file=sys.stderr)
+        return 1
+    if not results:
+        print("No findings in this receipt. Nothing to publish.")
+    for result in results:
+        if result["action"] == "would-check-then-create":
+            print("DRY RUN %s: %s" % (result["key"], result["title"]))
+            print("  would search open '%s' issues in %s for its marker, then create one if none exists%s" % (
+                issues.LABEL, slug, "; ledger lists #%d" % result["ledgerIssue"] if result["ledgerIssue"] else ""))
+            print("  " + result["body"].replace("\n", "\n  ").rstrip())
+        else:
+            print("%s %s: #%d %s" % (result["action"].upper(), result["key"], result["number"], result["title"]))
+    return 0
 
 
 def schedule_cli(args):
@@ -247,7 +402,8 @@ def schedule_cli(args):
     if not load_config().get("repo"):
         print("Save the checkout and revisions in Night Watch before scheduling checks.", file=sys.stderr)
         return 1
-    command = shlex.join([sys.executable, os.path.realpath(__file__), "run", "--scheduled"])
+    # The nightly job plays the Showdown fight, whatever mode the manual settings hold.
+    command = shlex.join([sys.executable, os.path.realpath(__file__), "run", "--scheduled", "--mode", NIGHTLY_MODE])
     return subprocess.run([
         crew, "cron", "add", "Night Watch", "",
         "--cron", "%d %d * * *" % (time.minute, time.hour), "--timezone", args.timezone,
@@ -262,15 +418,37 @@ def main(argv):
     commands = parser.add_subparsers(dest="command")
     run = commands.add_parser("run", help="run one balance check and store the report")
     run.add_argument("--scheduled", action="store_true", help="record the check as scheduled")
+    run.add_argument("--mode", choices=balance.MODES, help="showdown (paired seat-swapped deals) or lanes; defaults to the saved setting")
     schedule = commands.add_parser("schedule", help="register or remove the Kiro Crew job")
     schedule.add_argument("--time", default="02:00", help="local nightly time as HH:MM")
     schedule.add_argument("--timezone", default="America/Los_Angeles", help="IANA timezone for the schedule")
     schedule.add_argument("--remove", action="store_true", help="remove the Night Watch job")
+    evaluate = commands.add_parser("evaluate", help="on-demand check that writes a receipt and keeps saved state")
+    evaluate.add_argument("--repo", required=True, help="absolute path of a local checkout")
+    evaluate.add_argument("--candidate", required=True, help="candidate Git ref")
+    evaluate.add_argument("--baseline", help="baseline Git ref (defaults to the candidate)")
+    evaluate.add_argument("--mode", choices=balance.MODES, default="showdown")
+    evaluate.add_argument("--first-seed", type=int, default=0)
+    evaluate.add_argument("--count", type=int, default=1000, help="deals (Showdown) or matches (lanes)")
+    evaluate.add_argument("--threshold", type=float, default=10, help="shift alert threshold in pp")
+    evaluate.add_argument("--band-low", type=float, help="operator target band low edge, percent")
+    evaluate.add_argument("--band-high", type=float, help="operator target band high edge, percent")
+    evaluate.add_argument("--out", help="receipt file (default: stdout)")
+    publish = commands.add_parser("issues", help="dry-run or publish one 'night-watch' issue per finding")
+    source = publish.add_mutually_exclusive_group()
+    source.add_argument("--receipt", help="receipt JSON file")
+    source.add_argument("--report", default="latest", help="stored report id, or latest")
+    publish.add_argument("--repo", help="GitHub owner/name (defaults to the receipt's repository)")
+    publish.add_argument("--publish", action="store_true", help="really create issues; without it this is a dry run")
     args = parser.parse_args(argv)
+    if args.command == "evaluate":
+        return evaluate_cli(args)
+    if args.command == "issues":
+        return issues_cli(args)
     if args.command == "schedule":
         return schedule_cli(args)
     if args.command == "run":
-        return run_cli("scheduled" if args.scheduled else "manual")
+        return run_cli("scheduled" if args.scheduled else "manual", args.mode)
     serve()
     return 0
 
