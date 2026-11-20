@@ -2,7 +2,7 @@
 
 Night Watch runs inside the Kiro Crew dashboard. Compare Cowboys vs. Wizards revisions on the same CPU match seeds, see faction and starting-seat win shares, and draft a GitHub issue when a run crosses the alert threshold or fails a check.
 
-This repository is a standalone mirror of [`apps/night-watch`](https://github.com/alejandro-publius/cowboys-vs-wizards/tree/7fdc234a59bace2a809a77c188fb193e0846dea1/apps/night-watch) in the Cowboys vs. Wizards game repository at commit `7fdc234a59bace2a809a77c188fb193e0846dea1`. The app runtime and tests here are byte-identical to that copy; [SOURCE.json](SOURCE.json) lists every file's Git blob hash. This README, `SOURCE.json`, `.gitignore` and `docs/evidence/` are specific to the mirror. Night Watch does not contain the game. It reads the committed rules engine from a separate local game checkout.
+This repository is a standalone mirror of [`apps/night-watch`](https://github.com/alejandro-publius/cowboys-vs-wizards/tree/7fdc234a59bace2a809a77c188fb193e0846dea1/apps/night-watch) in the Cowboys vs. Wizards game repository. The source is game commit `471e3604f954970bf97d79ee93a6362edaaf2755`, a single test-only commit on top of `7fdc234a59bace2a809a77c188fb193e0846dea1`; at the time of this sync it is on the game branch `kiro/night-watch-standalone-tests` and not yet merged, so the links here point to `7fdc234`. The app runtime and tests here are byte-identical to the source commit; [SOURCE.json](SOURCE.json) lists every file's Git blob hash. This README, `SOURCE.json`, `.gitignore` and `docs/evidence/` are specific to the mirror. Night Watch does not contain the game. It reads the committed rules engine from a separate local game checkout.
 
 ## Verify the standalone extension
 
@@ -14,11 +14,7 @@ node --check ui/index.mjs
 node --check backend/showdown_sim.mjs
 ~~~
 
-The suite has 29 tests. Three of them (`test_config_accepts_only_known_modes_and_keeps_lanes_default`, `test_band_is_optional_and_validated` and `test_opt_in_needs_showdown_and_band`) use the folder two levels above the app as a Git checkout with a `HEAD` commit, which is the game repository in the upstream layout `apps/night-watch`. From a standalone clone those three report `ConfigError ... is not a Git checkout`, and the other 26 pass. To run all 29, run the same command against the identical files inside a game checkout at the source commit:
-
-~~~sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s apps/night-watch/backend -p 'test_*.py' -v
-~~~
+The suite has 29 tests and needs `git` and `node` on PATH. All 29 pass from a standalone clone. The configuration tests build their own tiny temporary Git checkout, so they no longer depend on where the app sits. The same files also pass in the game repository, run from its root with `-s apps/night-watch/backend`.
 
 The checks cover configuration boundaries, alert thresholds, isolated report storage, Showdown parsing and a two-seat runner fixture, lean intervals, receipt rechecks, issue publishing with a mocked `gh`, scheduled-issue gating and the Host header guard. They do not substitute for a full Crew browser installation or a scheduled-job run.
 
@@ -94,7 +90,7 @@ The app and job share the local Night Watch data directory. Keep the computer an
 
 ## Source and attribution
 
-Synchronized from [Cowboys vs. Wizards](https://github.com/alejandro-publius/cowboys-vs-wizards/tree/7fdc234a59bace2a809a77c188fb193e0846dea1/apps/night-watch), the companion game repository, at commit `7fdc234a59bace2a809a77c188fb193e0846dea1` (app version 0.2.0). The first standalone export was taken from commit `599450a27703fbdb8961d626c3e779512f54f29e` (version 0.1.x). Keep the game checkout available separately: Night Watch compares its committed rules engine and does not embed game art or models.
+Synchronized from [Cowboys vs. Wizards](https://github.com/alejandro-publius/cowboys-vs-wizards/tree/7fdc234a59bace2a809a77c188fb193e0846dea1/apps/night-watch), the companion game repository, at commit `471e3604f954970bf97d79ee93a6362edaaf2755` (app version 0.2.0; game commit `7fdc234` plus the layout-independent test fixture). The first standalone export was taken from commit `599450a27703fbdb8961d626c3e779512f54f29e` (version 0.1.x). Keep the game checkout available separately: Night Watch compares its committed rules engine and does not embed game art or models.
 
 Kiro CLI wrote the balance adapter and HTTP backend. Codex wrote the dashboard and schedule integration, fixed a tribute test in the game, and prepared the first standalone package. Showdown mode, lean receipts, issue publishing and the Host header guard were added later in the game repository; see its history for `apps/night-watch`. Kiro CLI synchronized this mirror to the source commit. Actual Crew use is documented in the [game evidence](https://github.com/alejandro-publius/cowboys-vs-wizards/blob/7fdc234a59bace2a809a77c188fb193e0846dea1/docs/evidence/kiro-night-watch.md). Updating this mirror is not a new live Crew run.
 
@@ -102,13 +98,15 @@ This project was built for Kiroween 2026. It is an optional local developer tool
 
 ## Verification and limits
 
-For this synchronization, every runtime and test file's Git blob hash matches the source commit. From the standalone root, 26 of 29 tests pass and the 3 layout-dependent tests described above error. The same files at `apps/night-watch` in a game checkout at the source commit pass all 29. `node --check` passes for `ui/index.mjs` and `backend/showdown_sim.mjs`. No Crew install, UI run, balance run or schedule was performed for this update, and none is claimed.
+For this synchronization, every runtime and test file's Git blob hash matches source commit `471e360`. From the root of a fresh clone of this mirror, all 29 tests pass, including the two historical profile-extraction fixtures. The same files at `apps/night-watch` in the game checkout pass all 29. `node --check` passes for `ui/index.mjs` and `backend/showdown_sim.mjs`. No Crew install, UI run, balance run or schedule was performed for this update, and none is claimed.
 
 Issue links open a prefilled GitHub draft. The app files issues only through the opt-in `issues --publish` command or opt-in scheduled issues gated by the reviewer. Scheduling remains opt-in using the documented command after a successful manual run.
 
 ## Historical verification (earlier versions)
 
 These records describe earlier mirror versions and were not repeated for 0.2.0.
+
+- **0.2.0 first sync (mirror commit `3d6ce54`, from game `7fdc234`).** Three configuration tests read the folder two levels above the app as the game checkout, so from a standalone clone 26 of 29 passed and 3 errored with `ConfigError ... is not a Git checkout`; all 29 passed inside the game layout. The current test fixture fixes this.
 
 - **0.1.1, November 16, 2026.** The first standalone export passed four Python tests and the UI syntax check.
 - **0.1.2.** Kiro found and fixed a missing profile-module export, and Codex kept older baselines without profiles valid. Six Python checks passed, including real archive/import fixtures, and Kiro completed a separate 20-seed backend run at `599450a`. [Fix evidence](docs/evidence/night-watch-profile-export-fix.md). The fix is now part of the upstream app: `balance.py` extracts `src` as an optional path, and both Git fixtures are in the current test file unchanged.

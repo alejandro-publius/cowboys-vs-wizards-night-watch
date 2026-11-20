@@ -1,6 +1,6 @@
 {
   "repository": "https://github.com/alejandro-publius/cowboys-vs-wizards",
-  "commit": "7fdc234a59bace2a809a77c188fb193e0846dea1",
+  "commit": "471e3604f954970bf97d79ee93a6362edaaf2755",
   "path": "apps/night-watch",
   "packaged_by": "Codex",
   "synchronized_by": "Kiro CLI (K-079)",
@@ -16,7 +16,7 @@
       "backend/lean.py": "8361d5e80ec7c8e0610c47c4eef5d3f3481ff7a1",
       "backend/server.py": "bd49935b60460bce570f50890abd5ece4b9dc031",
       "backend/showdown_sim.mjs": "33b0f354b06ce3be7ed2ce524a76a1574b3bc76f",
-      "backend/test_night_watch.py": "15b6e85aca07a4da4597577aac0622fabb5174c3",
+      "backend/test_night_watch.py": "65a4bbae6680b6cdfafc17a23179859b43080afa",
       "ui/index.mjs": "96c3344d8b334bc0f87b31d0615ff802e2ee1689",
       "ui/panel.css": "23ee1b709a62abe58751b30c7b131c6abca31a22"
     },
@@ -25,7 +25,10 @@
       "README.md",
       "SOURCE.json",
       "docs/evidence/"
-    ]
+    ],
+    "differs_from_upstream": {
+      "README.md": "mirror-specific README (root install and test paths); upstream apps/night-watch/README.md is not copied"
+    }
   },
   "local_patches": [],
   "upstreamed_patches": [
@@ -36,5 +39,7 @@
       "applied_on": "599450a27703fbdb8961d626c3e779512f54f29e",
       "upstream_status": "Included at the source commit: balance.py extracts all of src as an optional path, and test_night_watch.py keeps both real Git fixtures (test_extracted_snapshot_runs_game_test_that_imports_profile_module and test_extracted_legacy_snapshot_without_profile_runs_game_test) unchanged"
     }
-  ]
+  ],
+  "commit_parent": "7fdc234a59bace2a809a77c188fb193e0846dea1",
+  "commit_note": "Canonical game branch kiro/night-watch-standalone-tests: one commit on top of the pinned game commit 7fdc234a59bace2a809a77c188fb193e0846dea1 that changes only apps/night-watch/backend/test_night_watch.py (config tests use a temporary Git checkout instead of parents[3]). Not yet merged upstream at the time of this sync."
 }

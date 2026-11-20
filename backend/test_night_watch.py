@@ -18,20 +18,34 @@ import lean
 import server
 
 
+def git_checkout_fixture(test):
+    """A tiny real Git checkout with one commit at HEAD, removed after the test, so config checks do not depend on
+    where this app is installed (apps/night-watch in the game, or a standalone clone)."""
+    directory = tempfile.mkdtemp(prefix="night-watch-config-")
+    test.addCleanup(shutil.rmtree, directory, ignore_errors=True)
+    git = ["git", "-C", directory, "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
+    subprocess.run(["git", "init", "-q", directory], check=True)
+    Path(directory, "README.md").write_text("fixture\n")
+    subprocess.run(git + ["add", "-A"], check=True)
+    subprocess.run(git + ["commit", "-q", "-m", "fixture"], check=True)
+    return os.path.realpath(directory)
+
+
 class NightWatchTests(unittest.TestCase):
     def test_config_rejects_unsafe_ranges_and_boolean_counts(self):
-        repo = str(Path(__file__).resolve().parents[3])
-        for values in (
-            {"count": 0},
-            {"count": 10001},
-            {"count": True},
-            {"threshold": float("nan")},
-            {"firstSeed": -1},
-            {"firstSeed": 2**32 - 1, "count": 2},
-            {"baseline": "HEAD\nother"},
+        repo = git_checkout_fixture(self)
+        self.assertEqual(balance.validate_config({"repo": repo})["repo"], repo)
+        for values, field in (
+            ({"count": 0}, "Match count"),
+            ({"count": 10001}, "Match count"),
+            ({"count": True}, "Match count"),
+            ({"threshold": float("nan")}, "Threshold"),
+            ({"firstSeed": -1}, "First seed"),
+            ({"firstSeed": 2**32 - 1, "count": 2}, "First seed"),
+            ({"baseline": "HEAD\nother"}, "baseline ref"),
         ):
             with self.subTest(values=values):
-                with self.assertRaises(balance.ConfigError):
+                with self.assertRaisesRegex(balance.ConfigError, field):
                     balance.validate_config({"repo": repo, **values})
 
     def test_same_seed_threshold_alerts_and_seat_growth(self):
@@ -112,7 +126,7 @@ class ShowdownModeTests(unittest.TestCase):
     """Showdown mode: each deal played twice with the first seat swapped (prototypes/showdown/sim.mjs)."""
 
     def test_config_accepts_only_known_modes_and_keeps_lanes_default(self):
-        repo = str(Path(__file__).resolve().parents[3])
+        repo = git_checkout_fixture(self)
         self.assertEqual(balance.DEFAULT_CONFIG["mode"], "lanes")
         self.assertEqual(balance.validate_config({"repo": repo, "mode": "showdown"})["mode"], "showdown")
         with self.assertRaises(balance.ConfigError):
@@ -211,7 +225,7 @@ class LeanTests(unittest.TestCase):
     """Absolute lean against an operator band, separate from the baseline shift."""
 
     def test_band_is_optional_and_validated(self):
-        repo = str(Path(__file__).resolve().parents[3])
+        repo = git_checkout_fixture(self)
         self.assertIsNone(balance.DEFAULT_CONFIG["band"])
         self.assertIsNone(balance.validate_config({"repo": repo})["band"])
         self.assertEqual(balance.validate_config({"repo": repo, "band": {"low": 45, "high": 55}})["band"], {"low": 45, "high": 55})
@@ -465,7 +479,7 @@ class ScheduledIssueTests(unittest.TestCase):
             self.assertEqual(server.review_finding(self.record, node="/usr/bin/true")[0], False)
 
     def test_opt_in_needs_showdown_and_band(self):
-        repo = str(Path(__file__).resolve().parents[3])
+        repo = git_checkout_fixture(self)
         for values in ({"autoIssues": "lean"}, {"autoIssues": "lean", "band": {"low": 45, "high": 55}, "mode": "lanes"},
                        {"autoIssues": "yes"}, {"issueRepo": "a b"}):
             with self.subTest(values=values):
